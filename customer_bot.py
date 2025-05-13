@@ -4,6 +4,7 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Conversa
     CallbackContext
 from config import CUSTOMER_BOT_TOKEN, MAIN_ADMIN_ID, SECONDARY_ADMIN_ID
 from database import *
+import imghdr_compat as imghdr
 
 # حالات المحادثة
 VIEW_PRODUCTS, CREATE_ORDER, ORDER_QUANTITY, ORDER_NAME, ORDER_PHONE, ORDER_STATE, ORDER_MUNICIPALITY, ORDER_ADDRESS, ORDER_DELIVERY_TYPE = range(
