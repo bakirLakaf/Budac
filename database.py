@@ -4,7 +4,7 @@ from datetime import datetime
 
 
 def init_db():
-    conn = sqlite3.connect('/app/storage/ecommerce.db')  # مسار وحدة التخزين في Railway
+    conn = sqlite3.connect('ecommerce.db')  # مسار وحدة التخزين في Railway
     c = conn.cursor()
 
     # جدول الأقسام
@@ -60,7 +60,7 @@ def init_db():
 
 # وظائف إدارة الأقسام
 def add_category(name):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO categories (name) VALUES (?)", (name,))
     conn.commit()
@@ -68,7 +68,7 @@ def add_category(name):
 
 
 def get_categories():
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("SELECT * FROM categories")
     categories = c.fetchall()
@@ -78,7 +78,7 @@ def get_categories():
 
 # وظائف إدارة المنتجات
 def add_product(name, description, price, image, category_id, stock=10):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("INSERT INTO products (name, description, price, image, category_id, stock) VALUES (?, ?, ?, ?, ?, ?)",
               (name, description, price, image, category_id, stock))
@@ -87,7 +87,7 @@ def add_product(name, description, price, image, category_id, stock=10):
 
 
 def get_products(category_id=None):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     if category_id:
         c.execute("SELECT * FROM products WHERE category_id = ?", (category_id,))
@@ -99,7 +99,7 @@ def get_products(category_id=None):
 
 
 def delete_product(product_id):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("DELETE FROM products WHERE id = ?", (product_id,))
     conn.commit()
@@ -107,7 +107,7 @@ def delete_product(product_id):
 
 
 def update_product(product_id, name=None, description=None, price=None, image=None, category_id=None, stock=None):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     updates = []
     values = []
@@ -139,7 +139,7 @@ def update_product(product_id, name=None, description=None, price=None, image=No
 
 # وظائف إدارة الطلبيات
 def add_order(customer_id, customer_name, phone, state, municipality, address, delivery_type, total_price):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     c.execute(
@@ -154,7 +154,7 @@ def add_order(customer_id, customer_name, phone, state, municipality, address, d
 
 
 def add_order_item(order_id, product_id, quantity):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("SELECT stock FROM products WHERE id = ?", (product_id,))
     stock = c.fetchone()[0]
@@ -169,7 +169,7 @@ def add_order_item(order_id, product_id, quantity):
 
 
 def get_orders(status=None):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     if status:
         c.execute("SELECT * FROM orders WHERE status = ?", (status,))
@@ -181,7 +181,7 @@ def get_orders(status=None):
 
 
 def update_order_status(order_id, status):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
     conn.commit()
@@ -190,7 +190,7 @@ def update_order_status(order_id, status):
 
 # وظائف إدارة أسعار التوصيل
 def set_delivery_fee(state, office_fee, home_fee):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO delivery_fees (state, office_fee, home_fee) VALUES (?, ?, ?)",
               (state, office_fee, home_fee))
@@ -199,7 +199,7 @@ def set_delivery_fee(state, office_fee, home_fee):
 
 
 def get_delivery_fee(state, delivery_type):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("SELECT office_fee, home_fee FROM delivery_fees WHERE state = ?", (state,))
     result = c.fetchone()
@@ -211,7 +211,7 @@ def get_delivery_fee(state, delivery_type):
 
 # وظائف إدارة معلومات الاتصال
 def set_contact_info(type, value, display_name):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO contact_info (type, value, display_name) VALUES (?, ?, ?)",
               (type, value, display_name))
@@ -220,7 +220,7 @@ def set_contact_info(type, value, display_name):
 
 
 def get_contact_info():
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("SELECT * FROM contact_info")
     contacts = c.fetchall()
@@ -230,7 +230,7 @@ def get_contact_info():
 
 # وظائف إدارة الاقتراحات
 def add_suggestion(customer_id, text):
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     c.execute("INSERT INTO suggestions (customer_id, text, created_at) VALUES (?, ?, ?)",
@@ -240,7 +240,7 @@ def add_suggestion(customer_id, text):
 
 
 def get_suggestions():
-    conn = sqlite3.connect('/app/storage/ecommerce.db')
+    conn = sqlite3.connect('ecommerce.db')
     c = conn.cursor()
     c.execute("SELECT * FROM suggestions")
     suggestions = c.fetchall()
