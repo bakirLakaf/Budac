@@ -20,25 +20,26 @@ def check_admin(update: Update, context: CallbackContext) -> bool:
  
 # الأوامر الأساسية
 def start(update: Update, context: CallbackContext):
- if not check_admin(update, context):
- return
- stats = f"📊 حالة البوت:\n"
- stats += f"- عدد الأقسام: {len(get_categories())}\n"
- stats += f"- عدد المنتجات: {len(get_products())}\n"
- stats += f"- عدد الطلبيات: {len(get_orders())}"
- keyboard = [
- [InlineKeyboardButton("عرض المنتجات", callback_data="view_products")],
- [InlineKeyboardButton("إضافة منتج", callback_data="add_product")],
- [InlineKeyboardButton("إزالة منتج", callback_data="remove_product")],
- [InlineKeyboardButton("تعديل منتج", callback_data="edit_product")],
- [InlineKeyboardButton("إضافة قسم", callback_data="add_category")],
- [InlineKeyboardButton("عرض الطلبيات", callback_data="view_orders")],
- [InlineKeyboardButton("تعديل أسعار التوصيل", callback_data="set_delivery_fee")],
- [InlineKeyboardButton("تعديل معلومات الاتصال", callback_data="set_contact_info")],
- [InlineKeyboardButton("عرض الاقتراحات", callback_data="view_suggestions")]
- ]
- reply_markup = InlineKeyboardMarkup(keyboard)
- update.message.reply_text(stats, reply_markup=reply_markup)
+    if not check_admin(update, context):
+        return
+    stats = f"📊 حالة البوت:\n"
+    stats += f"- عدد الأقسام: {len(get_categories())}\n"
+    stats += f"- عدد المنتجات: {len(get_products())}\n"
+    stats += f"- عدد الطلبيات: {len(get_orders())}"
+    keyboard = [
+        [InlineKeyboardButton("عرض المنتجات", callback_data="view_products")],
+        [InlineKeyboardButton("إضافة منتج", callback_data="add_product")],
+        [InlineKeyboardButton("إزالة منتج", callback_data="remove_product")],
+        [InlineKeyboardButton("تعديل منتج", callback_data="edit_product")],
+        [InlineKeyboardButton("إضافة قسم", callback_data="add_category")],
+        [InlineKeyboardButton("عرض الطلبيات", callback_data="view_orders")],
+        [InlineKeyboardButton("تعديل أسعار التوصيل", callback_data="set_delivery_fee")],
+        [InlineKeyboardButton("تعديل معلومات الاتصال", callback_data="set_contact_info")],
+        [InlineKeyboardButton("عرض الاقتراحات", callback_data="view_suggestions")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(stats, reply_markup=reply_markup)
+
 
 # عرض المنتجات
 def view_products(update: Update, context: CallbackContext):
