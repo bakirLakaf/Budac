@@ -43,22 +43,22 @@ def view_category_products(update: Update, context: CallbackContext):
  show_product(update, context)
 
 def show_product(update: Update, context: CallbackContext):
- query = update.callback_query
- products = context.user_data['products']
- current = context.user_data['current_product']
- if not products:
- query.message.reply_text("لا توجد منتجات في هذا القسم.")
- return
- prod = products[current]
- text = f"🛒 {prod[1]}\n📝 {prod[2]}\n💵 {prod[3]:.2f} د.ج\n📦 المخزون: {prod[6]}"
- keyboard = [
- [InlineKeyboardButton("⬅️ السابق", callback_data="prev_product"),
- InlineKeyboardButton("التالي ➡️", callback_data="next_product")],
- [InlineKeyboardButton("إضافة للسلة", callback_data=f"add_to_cart_{prod[0]}")]
- ]
- reply_markup = InlineKeyboardMarkup(keyboard)
- query.message.reply_photo(photo=prod[4], caption=text, reply_markup=reply_markup)
-
+    query = update.callback_query
+    products = context.user_data['products']
+    current = context.user_data['current_product']
+    if not products:
+        query.message.reply_text("لا توجد منتجات في هذا القسم.")
+        return
+    prod = products[current]
+    text = f"🛒 {prod[1]}\n📝 {prod[2]}\n💵 {prod[3]:.2f} د.ج\n📦 المخزون: {prod[6]}"
+    keyboard = [
+        [InlineKeyboardButton("⬅️ السابق", callback_data="prev_product"),
+         InlineKeyboardButton("التالي ➡️", callback_data="next_product")],
+        [InlineKeyboardButton("إضافة للسلة", callback_data=f"add_to_cart_{prod[0]}")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.message.reply_photo(photo=prod[4], caption=text, reply_markup=reply_markup)
+ 
 def navigate_products(update: Update, context: CallbackContext):
  query = update.callback_query
  query.answer()
