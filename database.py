@@ -8,35 +8,60 @@ import shutil
 DB_PATH = '/app/storage/ecommerce.db' if os.getenv('RAILWAY_ENVIRONMENT') else 'ecommerce.db'
 # مسار الملف في المستودع
 REPO_DB_PATH = 'storage/ecommerce.db'
-# رابط المستودع (استبدله برابطك)
-REPO_URL = 'https://github.com/bakirLakaf/budac.git'  # مثل https://github.com/USERNAME/Budac.git
+# رابط المستودع
+REPO_URL = 'https://github.com/bakirLakaf/Budac.git'
 # إذا كان المستودع خاص، استخدم رمز وصول
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 if GITHUB_TOKEN:
-    REPO_URL = f'https://{GITHUB_TOKEN}@github.com/bakirLakaf/budac.git'
+    REPO_URL = f'https://{GITHUB_TOKEN}@github.com/bakirLakaf/Budac.git'
 # مجلد مؤقت للمستودع
 REPO_DIR = '/tmp/repo' if os.getenv('RAILWAY_ENVIRONMENT') else 'tmp_repo'
 
+
 def init_git_repo():
-    """تهيئة المستودع وسحب قاعدة البيانات"""
-    if not os.path.exists(REPO_DIR):
-        os.makedirs(REPO_DIR, exist_ok=True)
-        repo = git.Repo.clone_from(REPO_URL, REPO_DIR)
-    else:
-        repo = git.Repo(REPO_DIR)
-        repo.remotes.origin.pull()
-    # نسخ قاعدة البيانات للمسار المحلي
-    src_db = os.path.join(REPO_DIR, REPO_DB_PATH)
-    if os.path.exists(src_db):
-        shutil.copy(src_db, DB_PATH)
-    return repo
+    try:
+        # التأكد من وجود مجلد قاعدة البيانات
+        db_dir = os.path.dirname(DB_PATH)
+        if not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+
+        if not os.path.exists(REPO_DIR):
+            os.makedirs(REPO_DIR, exist_ok=True)
+            repo = git.Repo.clone_from(REPO_URL, REPO_DIR)
+        else:
+            repo = git.Repo(REPO_DIR)
+            repo.remotes.origin.pull()
+
+        # نسخ قاعدة البيانات للمسار المحلي
+        src_db = os.path.join(REPO_DIR, REPO_DB_PATH)
+        if os.path.exists(src_db):
+            shutil.copy(src_db, DB_PATH)
+        else:
+            # إنشاء قاعدة بيانات فارغة لو مش موجودة
+            conn = sqlite3.connect(DB_PATH)
+            conn.close()
+
+        return repo
+    except Exception as e:
+        print(f"Error in init_git_repo: {e}")
+        # إنشاء قاعدة بيانات محلية لو فشل السحب
+        conn = sqlite3.connect(DB_PATH)
+        conn.close()
+        return None
+
 
 def commit_and_push(repo):
     """رفع التغييرات لقاعدة البيانات"""
-    shutil.copy(DB_PATH, os.path.join(REPO_DIR, REPO_DB_PATH))
-    repo.index.add([REPO_DB_PATH])
-    repo.index.commit(f"Update ecommerce.db at {datetime.now()}")
-    repo.remotes.origin.push()
+    if repo is None:
+        return
+    try:
+        shutil.copy(DB_PATH, os.path.join(REPO_DIR, REPO_DB_PATH))
+        repo.index.add([REPO_DB_PATH])
+        repo.index.commit(f"Update ecommerce.db at {datetime.now()}")
+        repo.remotes.origin.push()
+    except Exception as e:
+        print(f"Error in commit_and_push: {e}")
+
 
 def init_db():
     repo = init_git_repo()
@@ -94,6 +119,7 @@ def init_db():
     conn.close()
     commit_and_push(repo)
 
+
 # وظائف إدارة الأقسام
 def add_category(name):
     repo = init_git_repo()
@@ -104,6 +130,7 @@ def add_category(name):
     conn.close()
     commit_and_push(repo)
 
+
 def get_categories():
     repo = init_git_repo()
     conn = sqlite3.connect(DB_PATH)
@@ -112,6 +139,7 @@ def get_categories():
     categories = c.fetchall()
     conn.close()
     return categories
+
 
 # وظائف إدارة المنتجات
 def add_product(name, description, price, image, category_id, stock=10):
@@ -123,6 +151,7 @@ def add_product(name, description, price, image, category_id, stock=10):
     conn.commit()
     conn.close()
     commit_and_push(repo)
+
 
 def get_products(category_id=None):
     repo = init_git_repo()
@@ -136,6 +165,7 @@ def get_products(category_id=None):
     conn.close()
     return products
 
+
 def delete_product(product_id):
     repo = init_git_repo()
     conn = sqlite3.connect(DB_PATH)
@@ -144,6 +174,7 @@ def delete_product(product_id):
     conn.commit()
     conn.close()
     commit_and_push(repo)
+
 
 def update_product(product_id, name=None, description=None, price=None, image=None, category_id=None, stock=None):
     repo = init_git_repo()
@@ -177,6 +208,7 @@ def update_product(product_id, name=None, description=None, price=None, image=No
     conn.close()
     commit_and_push(repo)
 
+
 # وظائف إدارة الطلبيات
 def add_order(customer_id, customer_name, phone, state, municipality, address, delivery_type, total_price):
     repo = init_git_repo()
@@ -185,12 +217,14 @@ def add_order(customer_id, customer_name, phone, state, municipality, address, d
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     c.execute(
         "INSERT INTO orders (customer_id, customer_name, phone, state, municipality, address, delivery_type, total_price, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (customer_id, customer_name, phone, state, municipality, address, delivery_type, total_price, "new", created_at))
+        (
+        customer_id, customer_name, phone, state, municipality, address, delivery_type, total_price, "new", created_at))
     order_id = c.lastrowid
     conn.commit()
     conn.close()
     commit_and_push(repo)
     return order_id
+
 
 def add_order_item(order_id, product_id, quantity):
     repo = init_git_repo()
@@ -208,6 +242,7 @@ def add_order_item(order_id, product_id, quantity):
     conn.close()
     commit_and_push(repo)
 
+
 def get_orders(status=None):
     repo = init_git_repo()
     conn = sqlite3.connect(DB_PATH)
@@ -220,6 +255,7 @@ def get_orders(status=None):
     conn.close()
     return orders
 
+
 def update_order_status(order_id, status):
     repo = init_git_repo()
     conn = sqlite3.connect(DB_PATH)
@@ -228,6 +264,7 @@ def update_order_status(order_id, status):
     conn.commit()
     conn.close()
     commit_and_push(repo)
+
 
 # وظائف إدارة أسعار التوصيل
 def set_delivery_fee(state, office_fee, home_fee):
@@ -240,6 +277,7 @@ def set_delivery_fee(state, office_fee, home_fee):
     conn.close()
     commit_and_push(repo)
 
+
 def get_delivery_fee(state, delivery_type):
     repo = init_git_repo()
     conn = sqlite3.connect(DB_PATH)
@@ -250,6 +288,7 @@ def get_delivery_fee(state, delivery_type):
     if result:
         return result[0] if delivery_type == "office" else result[1]
     return 0
+
 
 # وظائف إدارة معلومات الاتصال
 def set_contact_info(type, value, display_name):
@@ -262,6 +301,7 @@ def set_contact_info(type, value, display_name):
     conn.close()
     commit_and_push(repo)
 
+
 def get_contact_info():
     repo = init_git_repo()
     conn = sqlite3.connect(DB_PATH)
@@ -270,6 +310,7 @@ def get_contact_info():
     contacts = c.fetchall()
     conn.close()
     return contacts
+
 
 # وظائف إدارة الاقتراحات
 def add_suggestion(customer_id, text):
@@ -283,6 +324,7 @@ def add_suggestion(customer_id, text):
     conn.close()
     commit_and_push(repo)
 
+
 def get_suggestions():
     repo = init_git_repo()
     conn = sqlite3.connect(DB_PATH)
@@ -291,6 +333,7 @@ def get_suggestions():
     suggestions = c.fetchall()
     conn.close()
     return suggestions
+
 
 if __name__ == "__main__":
     init_db()
