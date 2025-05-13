@@ -1,282 +1,221 @@
-# customer_bot.py
+import os
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, \
-    CallbackContext
-from config import CUSTOMER_BOT_TOKEN, MAIN_ADMIN_ID, SECONDARY_ADMIN_ID
-from database import *
-import imghdr_compat as imghdr
+from telegram.ext import (
+
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ConversationHandler,
+    filters,
+    ContextTypes,
+)
+from tornado.web import Application
+
+from database import (
+    get_categories,
+    get_products,
+    add_order,
+    add_order_item,
+    get_delivery_fee,
+    get_contact_info,
+    add_suggestion,
+)
+
+# متغيرات البيئة
+TOKEN = os.getenv("CUSTOMER_BOT_TOKEN")
+MAIN_ADMIN_ID = int(os.getenv("MAIN_ADMIN_ID", 0))
+SECONDARY_ADMIN_ID = int(os.getenv("SECONDARY_ADMIN_ID", 0))
 
 # حالات المحادثة
-VIEW_PRODUCTS, CREATE_ORDER, ORDER_QUANTITY, ORDER_NAME, ORDER_PHONE, ORDER_STATE, ORDER_MUNICIPALITY, ORDER_ADDRESS, ORDER_DELIVERY_TYPE = range(
-    9)
-CONTACT_US, SUGGESTION = range(2)
+SELECT_CATEGORY, SELECT_PRODUCT, SELECT_QUANTITY, CUSTOMER_NAME, CUSTOMER_PHONE, CUSTOMER_STATE, CUSTOMER_MUNICIPALITY, CUSTOMER_ADDRESS, DELIVERY_TYPE, SUGGESTION_TEXT = range(
+    10)
 
 
-# رسالة الترحيب
-def start(update: Update, context: CallbackContext):
-    welcome_message = (
-        "🎉 مرحبًا بكم في متجرنا الإلكتروني! نقدم لكم أفضل المنتجات بجودة عالية وأسعار تنافسية. "
-        "تابعونا على صفحتنا على فيسبوك للحصول على العروض الحصرية: "
-        "[صفحتنا](https://www.facebook.com/profile.php?id=100065654981659) 🚚 اطلب الآن واستمتع بخدمة توصيل سريعة!"
-    )
-    keyboard = [
-        [InlineKeyboardButton("عرض المنتجات", callback_data="view_products")],
-        [InlineKeyboardButton("إنشاء طلبية", callback_data="create_order")],
-        [InlineKeyboardButton("اتصل بنا", callback_data="contact_us")],
-        [InlineKeyboardButton("اقتراحات", callback_data="suggestion")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(welcome_message, reply_markup=reply_markup, parse_mode="Markdown")
-
-
-# عرض المنتجات
-def view_products(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     categories = get_categories()
-    keyboard = [[InlineKeyboardButton(cat[1], callback_data=f"cat_{cat[0]}")] for cat in categories]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    query.message.reply_text("اختر القسم:", reply_markup=reply_markup)
-
-
-def view_category_products(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    category_id = int(query.data.split("_")[1])
-    products = get_products(category_id)
-    context.user_data['products'] = products
-    context.user_data['current_product'] = 0
-    show_product(update, context)
-
-
-def show_product(update: Update, context: CallbackContext):
-    query = update.callback_query
-    products = context.user_data['products']
-    current = context.user_data['current_product']
-    if not products:
-        query.message.reply_text("لا توجد منتجات في هذا القسم.")
+    if not categories:
+        await update.message.reply_text("لا توجد أقسام متاحة حاليًا!")
         return
-    prod = products[current]
-    text = f"🛒 {prod[1]}\n📝 {prod[2]}\n💵 {prod[3]:.2f} د.ج\n📦 المخزون: {prod[6]}"
-    keyboard = [
-        [InlineKeyboardButton("⬅️ السابق", callback_data="prev_product"),
-         InlineKeyboardButton("التالي ➡️", callback_data="next_product")],
-        [InlineKeyboardButton("إضافة للسلة", callback_data=f"add_to_cart_{prod[0]}")]
-    ]
+    keyboard = [[InlineKeyboardButton(cat[1], callback_data=f"cat_{cat[0]}")] for cat in categories]
+    keyboard.append([InlineKeyboardButton("معلومات الاتصال", callback_data="contact_info")])
+    keyboard.append([InlineKeyboardButton("إرسال اقتراح", callback_data="send_suggestion")])
     reply_markup = InlineKeyboardMarkup(keyboard)
-    query.message.reply_photo(photo=prod[4], caption=text, reply_markup=reply_markup)
+    await update.message.reply_text("مرحبًا! اختر قسمًا أو إجراءً:", reply_markup=reply_markup)
 
 
-def navigate_products(update: Update, context: CallbackContext):
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
-    products = context.user_data['products']
-    current = context.user_data['current_product']
-    if query.data == "prev_product":
-        context.user_data['current_product'] = max(0, current - 1)
-    elif query.data == "next_product":
-        context.user_data['current_product'] = min(len(products) - 1, current + 1)
-    show_product(update, context)
+    await query.answer()
+    data = query.data
+
+    if data.startswith("cat_"):
+        category_id = int(data.split("_")[1])
+        context.user_data["category_id"] = category_id
+        products = get_products(category_id)
+        if not products:
+            await query.message.reply_text("لا توجد منتجات في هذا القسم!")
+            return
+        keyboard = [[InlineKeyboardButton(prod[1], callback_data=f"prod_{prod[0]}")] for prod in products]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.message.reply_text("اختر المنتج:", reply_markup=reply_markup)
+        return SELECT_PRODUCT
+    elif data == "contact_info":
+        contacts = get_contact_info()
+        if not contacts:
+            await query.message.reply_text("لا توجد معلومات اتصال متاحة!")
+            return
+        message = "معلومات الاتصال:\n"
+        for contact in contacts:
+            message += f"- {contact[3]}: {contact[2]}\n"
+        await query.message.reply_text(message)
+    elif data == "send_suggestion":
+        await query.message.reply_text("أدخل اقتراحك:")
+        return SUGGESTION_TEXT
 
 
-# إنشاء طلبية
-def create_order(update: Update, context: CallbackContext):
-    context.user_data['cart'] = []
-    products = get_products()
-    keyboard = [[InlineKeyboardButton(f"{prod[1]}", callback_data=f"order_{prod[0]}")] for prod in products]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.callback_query.message.reply_text("اختر المنتج:", reply_markup=reply_markup)
-    return CREATE_ORDER
-
-
-def order_select_product(update: Update, context: CallbackContext):
+async def select_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
+    await query.answer()
     product_id = int(query.data.split("_")[1])
-    context.user_data['current_product_id'] = product_id
-    query.message.reply_text("أدخل الكمية:")
-    return ORDER_QUANTITY
+    context.user_data["product_id"] = product_id
+    product = next((p for p in get_products(context.user_data["category_id"]) if p[0] == product_id), None)
+    if not product:
+        await query.message.reply_text("المنتج غير موجود!")
+        return ConversationHandler.END
+    await query.message.reply_photo(
+        photo=open(product[4], "rb"),
+        caption=f"{product[1]}\n{product[2]}\nالسعر: {product[3]} د.ج\nالمخزون: {product[6]}"
+    )
+    await query.message.reply_text("أدخل الكمية المطلوبة:")
+    return SELECT_QUANTITY
 
 
-def order_quantity(update: Update, context: CallbackContext):
+async def select_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         quantity = int(update.message.text)
         if quantity <= 0:
-            raise ValueError
-        product_id = context.user_data['current_product_id']
-        conn = sqlite3.connect('/app/storage/ecommerce.db')
-        c = conn.cursor()
-        c.execute("SELECT stock FROM products WHERE id = ?", (product_id,))
-        stock = c.fetchone()[0]
-        conn.close()
-        if stock < quantity:
-            update.message.reply_text(f"الكمية المطلوبة غير متوفرة! المخزون الحالي: {stock}")
-            return ORDER_QUANTITY
-        context.user_data['cart'].append({'product_id': product_id, 'quantity': quantity})
-        update.message.reply_text("هل تريد إضافة منتج آخر؟ (نعم/لا)")
-        return ORDER_QUANTITY + 1
+            await update.message.reply_text("الكمية يجب أن تكون أكبر من صفر!")
+            return SELECT_QUANTITY
+        context.user_data["quantity"] = quantity
+        await update.message.reply_text("أدخل اسمك:")
+        return CUSTOMER_NAME
     except ValueError:
-        update.message.reply_text("الكمية غير صحيحة! أدخل الكمية مرة أخرى:")
-        return ORDER_QUANTITY
+        await update.message.reply_text("الكمية غير صحيحة! أدخل رقمًا:")
+        return SELECT_QUANTITY
 
 
-def order_add_more(update: Update, context: CallbackContext):
-    if update.message.text.lower() == "نعم":
-        products = get_products()
-        keyboard = [[InlineKeyboardButton(f"{prod[1]}", callback_data=f"order_{prod[0]}")] for prod in products]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text("اختر المنتج:", reply_markup=reply_markup)
-        return CREATE_ORDER
-    update.message.reply_text("أدخل اسمك الكامل:")
-    return ORDER_NAME
+async def customer_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["customer_name"] = update.message.text
+    await update.message.reply_text("أدخل رقم هاتفك:")
+    return CUSTOMER_PHONE
 
 
-def order_name(update: Update, context: CallbackContext):
-    context.user_data['order'] = {'name': update.message.text}
-    update.message.reply_text("أدخل رقم هاتفك:")
-    return ORDER_PHONE
+async def customer_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["customer_phone"] = update.message.text
+    await update.message.reply_text("أدخل اسم الولاية:")
+    return CUSTOMER_STATE
 
 
-def order_phone(update: Update, context: CallbackContext):
-    context.user_data['order']['phone'] = update.message.text
-    update.message.reply_text("أدخل الولاية:")
-    return ORDER_STATE
+async def customer_state(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["customer_state"] = update.message.text
+    await update.message.reply_text("أدخل اسم البلدية:")
+    return CUSTOMER_MUNICIPALITY
 
 
-def order_state(update: Update, context: CallbackContext):
-    context.user_data['order']['state'] = update.message.text
-    update.message.reply_text("أدخل البلدية:")
-    return ORDER_MUNICIPALITY
+async def customer_municipality(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["customer_municipality"] = update.message.text
+    await update.message.reply_text("أدخل عنوانك:")
+    return CUSTOMER_ADDRESS
 
 
-def order_municipality(update: Update, context: CallbackContext):
-    context.user_data['order']['municipality'] = update.message.text
+async def customer_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["customer_address"] = update.message.text
     keyboard = [
-        [InlineKeyboardButton("إلى المكتب", callback_data="delivery_office")],
-        [InlineKeyboardButton("إلى المنزل", callback_data="delivery_home")]
+        [InlineKeyboardButton("توصيل للمكتب", callback_data="office"),
+         InlineKeyboardButton("توصيل للمنزل", callback_data="home")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("اختر نوع التوصيل:", reply_markup=reply_markup)
-    return ORDER_DELIVERY_TYPE
+    await update.message.reply_text("اختر نوع التوصيل:", reply_markup=reply_markup)
+    return DELIVERY_TYPE
 
 
-def order_delivery_type(update: Update, context: CallbackContext):
+async def delivery_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    query.answer()
-    delivery_type = "office" if query.data == "delivery_office" else "home"
-    context.user_data['order']['delivery_type'] = delivery_type
-    if delivery_type == "home":
-        query.message.reply_text("أدخل العنوان:")
-        return ORDER_ADDRESS
-    return finalize_order(update, context)
-
-
-def order_address(update: Update, context: CallbackContext):
-    context.user_data['order']['address'] = update.message.text
-    return finalize_order(update, context)
-
-
-def finalize_order(update: Update, context: CallbackContext):
-    order = context.user_data['order']
-    cart = context.user_data['cart']
-    customer_id = update.effective_user.id
-    total_price = 0
-    for item in cart:
-        product = next((p for p in get_products() if p[0] == item['product_id']), None)
-        if product:
-            total_price += product[3] * item['quantity']
-    delivery_fee = get_delivery_fee(order['state'], order['delivery_type'])
+    await query.answer()
+    delivery_type = query.data
+    context.user_data["delivery_type"] = delivery_type
+    product_id = context.user_data["product_id"]
+    quantity = context.user_data["quantity"]
+    state = context.user_data["customer_state"]
+    product = next((p for p in get_products() if p[0] == product_id), None)
+    if not product:
+        await query.message.reply_text("المنتج غير موجود!")
+        return ConversationHandler.END
+    total_price = product[3] * quantity
+    delivery_fee = get_delivery_fee(state, delivery_type)
     total_price += delivery_fee
-    address = order.get('address', '')
-    order_id = add_order(customer_id, order['name'], order['phone'], order['state'],
-                         order['municipality'], address, order['delivery_type'], total_price)
-    for item in cart:
-        add_order_item(order_id, item['product_id'], item['quantity'])
-    text = f"🎉 شكرًا لطلبك!\nالسعر الإجمالي: {total_price:.2f} د.ج\nسنتواصل معك قريبًا."
-    update.message.reply_text(text) if update.message else update.callback_query.message.reply_text(text)
-
-    # إشعار للأدمن
-    admin_text = f"🛒 طلبية جديدة #{order_id}\n👤 {order['name']}\n📞 {order['phone']}\n📍 {order['state']}, {order['municipality']}\n💵 {total_price:.2f} د.ج"
-    context.bot.send_message(chat_id=MAIN_ADMIN_ID, text=admin_text)
-    context.bot.send_message(chat_id=SECONDARY_ADMIN_ID, text=admin_text)
-
-    context.user_data.clear()
-    start(update, context)
+    order_id = add_order(
+        update.effective_user.id,
+        context.user_data["customer_name"],
+        context.user_data["customer_phone"],
+        state,
+        context.user_data["customer_municipality"],
+        context.user_data["customer_address"],
+        delivery_type,
+        total_price
+    )
+    add_order_item(order_id, product_id, quantity)
+    await query.message.reply_text(
+        f"تم إنشاء الطلب #{order_id}!\nالإجمالي: {total_price} د.ج (يشمل رسوم التوصيل: {delivery_fee} د.ج)"
+    )
+    for admin_id in [MAIN_ADMIN_ID, SECONDARY_ADMIN_ID]:
+        await context.bot.send_message(
+            chat_id=admin_id,
+            text=f"طلب جديد #{order_id} من {context.user_data['customer_name']}\nالإجمالي: {total_price} د.ج"
+        )
     return ConversationHandler.END
 
 
-# اتصل بنا
-def contact_us(update: Update, context: CallbackContext):
-    contacts = get_contact_info()
-    keyboard = [[InlineKeyboardButton(contact[3], url=contact[2])] for contact in contacts]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.callback_query.message.reply_text("📞 تواصل معنا:", reply_markup=reply_markup)
-
-
-# اقتراحات
-def suggestion(update: Update, context: CallbackContext):
-    update.callback_query.message.reply_text("أدخل اقتراحك:")
-    return SUGGESTION
-
-
-def suggestion_text(update: Update, context: CallbackContext):
-    add_suggestion(update.effective_user.id, update.message.text)
-    update.message.reply_text("شكرًا على اقتراحك!")
-    start(update, context)
+async def send_suggestion(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    add_suggestion(update.effective_user.id, text)
+    await update.message.reply_text("تم إرسال اقتراحك! شكرًا!")
     return ConversationHandler.END
 
 
-# إلغاء المحادثة
-def cancel(update: Update, context: CallbackContext):
-    update.message.reply_text("تم إلغاء العملية.")
-    context.user_data.clear()
-    start(update, context)
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("تم إلغاء العملية.")
     return ConversationHandler.END
 
 
 def main():
-    updater = Updater(CUSTOMER_BOT_TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(view_products, pattern="view_products"))
-    dp.add_handler(CallbackQueryHandler(view_category_products, pattern="cat_"))
-    dp.add_handler(CallbackQueryHandler(navigate_products, pattern="(prev_product|next_product)"))
-    dp.add_handler(CallbackQueryHandler(order_select_product, pattern="add_to_cart_"))
-
-    # محادثة إنشاء طلبية
-    create_order_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(create_order, pattern="create_order")],
-        states={
-            CREATE_ORDER: [CallbackQueryHandler(order_select_product, pattern="order_")],
-            ORDER_QUANTITY: [MessageHandler(Filters.text & ~Filters.command, order_quantity)],
-            ORDER_QUANTITY + 1: [MessageHandler(Filters.text & ~Filters.command, order_add_more)],
-            ORDER_NAME: [MessageHandler(Filters.text & ~Filters.command, order_name)],
-            ORDER_PHONE: [MessageHandler(Filters.text & ~Filters.command, order_phone)],
-            ORDER_STATE: [MessageHandler(Filters.text & ~Filters.command, order_state)],
-            ORDER_MUNICIPALITY: [MessageHandler(Filters.text & ~Filters.command, order_municipality)],
-            ORDER_DELIVERY_TYPE: [CallbackQueryHandler(order_delivery_type, pattern="delivery_")],
-            ORDER_ADDRESS: [MessageHandler(Filters.text & ~Filters.command, order_address)]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    dp.add_handler(create_order_conv)
-
-    # اتصل بنا
-    dp.add_handler(CallbackQueryHandler(contact_us, pattern="contact_us"))
-
-    # اقتراحات
-    suggestion_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(suggestion, pattern="suggestion")],
-        states={
-            SUGGESTION: [MessageHandler(Filters.text & ~Filters.command, suggestion_text)]
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
-    )
-    dp.add_handler(suggestion_conv)
-
-    updater.start_polling()
-    updater.idle()
+    try:
+        application = Application.builder().token(TOKEN).build()
+        conv_handler = ConversationHandler(
+            entry_points=[
+                CommandHandler("start", start),
+                CallbackQueryHandler(button_callback),
+                CallbackQueryHandler(select_product, pattern="^prod_"),
+                CallbackQueryHandler(delivery_type, pattern="^(office|home)$"),
+            ],
+            states={
+                SELECT_PRODUCT: [CallbackQueryHandler(select_product, pattern="^prod_")],
+                SELECT_QUANTITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, select_quantity)],
+                CUSTOMER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, customer_name)],
+                CUSTOMER_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, customer_phone)],
+                CUSTOMER_STATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, customer_state)],
+                CUSTOMER_MUNICIPALITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, customer_municipality)],
+                CUSTOMER_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, customer_address)],
+                DELIVERY_TYPE: [CallbackQueryHandler(delivery_type, pattern="^(office|home)$")],
+                SUGGESTION_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_suggestion)],
+            },
+            fallbacks=[CommandHandler("cancel", cancel)]
+        )
+        application.add_handler(conv_handler)
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    except Exception as e:
+        print(f"Error in customer_bot: {e}")
 
 
 if __name__ == "__main__":
