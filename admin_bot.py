@@ -1,6 +1,7 @@
 # admin_bot.py
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, \
+    CallbackContext
 from config import ADMIN_BOT_TOKEN, MAIN_ADMIN_ID, SECONDARY_ADMIN_ID
 from database import *
 
@@ -10,6 +11,7 @@ REMOVE_PRODUCT, EDIT_PRODUCT, EDIT_PRODUCT_FIELD = range(3)
 SET_DELIVERY_FEE, SET_CONTACT_INFO, VIEW_ORDERS, VIEW_SUGGESTIONS = range(4)
 ADD_CATEGORY = range(1)  # حالة لإضافة قسم
 
+
 # التحقق من هوية الأدمن
 def check_admin(update: Update, context: CallbackContext) -> bool:
     user_id = update.effective_user.id
@@ -17,6 +19,7 @@ def check_admin(update: Update, context: CallbackContext) -> bool:
         update.message.reply_text("غير مصرح لك بالوصول إلى هذا البوت!")
         return False
     return True
+
 
 # الأوامر الأساسية
 def start(update: Update, context: CallbackContext):
@@ -40,6 +43,7 @@ def start(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(stats, reply_markup=reply_markup)
 
+
 # عرض المنتجات
 def view_products(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -48,6 +52,7 @@ def view_products(update: Update, context: CallbackContext):
     keyboard = [[InlineKeyboardButton(cat[1], callback_data=f"cat_{cat[0]}")] for cat in categories]
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.message.reply_text("اختر القسم:", reply_markup=reply_markup)
+
 
 def view_category_products(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -59,6 +64,7 @@ def view_category_products(update: Update, context: CallbackContext):
         query.message.reply_photo(photo=prod[4], caption=text)
     query.message.reply_text("تم عرض المنتجات.")
 
+
 # إضافة منتج
 def add_product(update: Update, context: CallbackContext):
     if not check_admin(update, context):
@@ -66,15 +72,18 @@ def add_product(update: Update, context: CallbackContext):
     update.callback_query.message.reply_text("أدخل اسم المنتج:")
     return ADD_PRODUCT_NAME
 
+
 def add_product_name(update: Update, context: CallbackContext):
     context.user_data['product'] = {'name': update.message.text}
     update.message.reply_text("أدخل وصف المنتج:")
     return ADD_PRODUCT_DESC
 
+
 def add_product_desc(update: Update, context: CallbackContext):
     context.user_data['product']['description'] = update.message.text
     update.message.reply_text("أدخل سعر المنتج (مثال: 10.00):")
     return ADD_PRODUCT_PRICE
+
 
 def add_product_price(update: Update, context: CallbackContext):
     try:
@@ -86,6 +95,7 @@ def add_product_price(update: Update, context: CallbackContext):
         update.message.reply_text("السعر غير صحيح! أدخل السعر مرة أخرى (مثال: 10.00):")
         return ADD_PRODUCT_PRICE
 
+
 def add_product_image(update: Update, context: CallbackContext):
     photo = update.message.photo[-1].get_file()
     context.user_data['product']['image'] = photo.file_id
@@ -94,6 +104,7 @@ def add_product_image(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("اختر القسم:", reply_markup=reply_markup)
     return ADD_PRODUCT_CATEGORY
+
 
 def add_product_category(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -105,6 +116,7 @@ def add_product_category(update: Update, context: CallbackContext):
     context.user_data.clear()
     return ConversationHandler.END
 
+
 # إزالة منتج
 def remove_product(update: Update, context: CallbackContext):
     if not check_admin(update, context):
@@ -115,6 +127,7 @@ def remove_product(update: Update, context: CallbackContext):
     update.callback_query.message.reply_text("اختر المنتج للحذف:", reply_markup=reply_markup)
     return REMOVE_PRODUCT
 
+
 def remove_product_confirm(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -122,6 +135,7 @@ def remove_product_confirm(update: Update, context: CallbackContext):
     delete_product(product_id)
     query.message.reply_text("تم إزالة المنتج بنجاح!")
     return ConversationHandler.END
+
 
 # تعديل منتج
 def edit_product(update: Update, context: CallbackContext):
@@ -132,6 +146,7 @@ def edit_product(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.message.reply_text("اختر المنتج للتعديل:", reply_markup=reply_markup)
     return EDIT_PRODUCT
+
 
 def edit_product_select(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -148,6 +163,7 @@ def edit_product_select(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.message.reply_text("اختر الحقل للتعديل:", reply_markup=reply_markup)
     return EDIT_PRODUCT_FIELD
+
 
 def edit_product_field(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -169,12 +185,14 @@ def edit_product_field(update: Update, context: CallbackContext):
         query.message.reply_text("اختر القسم الجديد:", reply_markup=reply_markup)
     return EDIT_PRODUCT_FIELD
 
+
 def edit_product_value(update: Update, context: CallbackContext):
     product_id = context.user_data['edit_product_id']
     field = context.user_data['edit_field']
     if field in ["edit_name", "edit_desc"]:
         value = update.message.text
-        update_product(product_id, name=value if field == "edit_name" else None, description=value if field == "edit_desc" else None)
+        update_product(product_id, name=value if field == "edit_name" else None,
+                       description=value if field == "edit_desc" else None)
     elif field == "edit_price":
         try:
             value = float(update.message.text)
@@ -189,6 +207,7 @@ def edit_product_value(update: Update, context: CallbackContext):
     context.user_data.clear()
     return ConversationHandler.END
 
+
 def edit_product_category(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -199,6 +218,7 @@ def edit_product_category(update: Update, context: CallbackContext):
     context.user_data.clear()
     return ConversationHandler.END
 
+
 # إضافة قسم
 def add_category(update: Update, context: CallbackContext):
     if not check_admin(update, context):
@@ -206,12 +226,14 @@ def add_category(update: Update, context: CallbackContext):
     update.callback_query.message.reply_text("أدخل اسم القسم الجديد:")
     return ADD_CATEGORY
 
+
 def add_category_name(update: Update, context: CallbackContext):
     category_name = update.message.text
     add_category(category_name)
     update.message.reply_text(f"تم إضافة القسم '{category_name}' بنجاح!")
     context.user_data.clear()
     return ConversationHandler.END
+
 
 # عرض الطلبيات
 def view_orders(update: Update, context: CallbackContext):
@@ -221,6 +243,7 @@ def view_orders(update: Update, context: CallbackContext):
         keyboard = [[InlineKeyboardButton(f"تغيير الحالة", callback_data=f"status_{order[0]}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.callback_query.message.reply_text(text, reply_markup=reply_markup)
+
 
 def change_order_status(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -234,6 +257,7 @@ def change_order_status(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.message.reply_text("اختر الحالة الجديدة:", reply_markup=reply_markup)
 
+
 def set_order_status(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -241,7 +265,7 @@ def set_order_status(update: Update, context: CallbackContext):
     order_id, status = int(data[1]), data[2]
     update_order_status(order_id, status)
     query.message.reply_text(f"تم تحديث حالة الطلبية إلى: {status}")
-    
+
     # إشعار للزبون
     conn = sqlite3.connect('/app/storage/ecommerce.db')
     c = conn.cursor()
@@ -250,6 +274,7 @@ def set_order_status(update: Update, context: CallbackContext):
     conn.close()
     context.bot.send_message(chat_id=customer_id, text=f"تم تحديث حالة طلبيتك #{order_id} إلى: {status}")
 
+
 # تعديل أسعار التوصيل
 def set_delivery_fee(update: Update, context: CallbackContext):
     if not check_admin(update, context):
@@ -257,10 +282,12 @@ def set_delivery_fee(update: Update, context: CallbackContext):
     update.callback_query.message.reply_text("أدخل الولاية:")
     return SET_DELIVERY_FEE
 
+
 def set_delivery_fee_state(update: Update, context: CallbackContext):
     context.user_data['delivery_fee'] = {'state': update.message.text}
     update.message.reply_text("أدخل سعر التوصيل للمكتب (مثال: 5.00):")
     return SET_DELIVERY_FEE + 1
+
 
 def set_delivery_fee_office(update: Update, context: CallbackContext):
     try:
@@ -271,6 +298,7 @@ def set_delivery_fee_office(update: Update, context: CallbackContext):
     except ValueError:
         update.message.reply_text("السعر غير صحيح! أدخل سعر التوصيل للمكتب مرة أخرى:")
         return SET_DELIVERY_FEE + 1
+
 
 def set_delivery_fee_home(update: Update, context: CallbackContext):
     try:
@@ -284,6 +312,7 @@ def set_delivery_fee_home(update: Update, context: CallbackContext):
         update.message.reply_text("السعر غير صحيح! أدخل سعر التوصيل للمنزل مرة أخرى:")
         return SET_DELIVERY_FEE + 2
 
+
 # تعديل معلومات الاتصال
 def set_contact_info(update: Update, context: CallbackContext):
     if not check_admin(update, context):
@@ -291,15 +320,18 @@ def set_contact_info(update: Update, context: CallbackContext):
     update.callback_query.message.reply_text("أدخل نوع الاتصال (مثل: phone, facebook, whatsapp):")
     return SET_CONTACT_INFO
 
+
 def set_contact_info_type(update: Update, context: CallbackContext):
     context.user_data['contact_info'] = {'type': update.message.text}
     update.message.reply_text("أدخل قيمة الاتصال (مثل رقم الهاتف أو الرابط):")
     return SET_CONTACT_INFO + 1
 
+
 def set_contact_info_value(update: Update, context: CallbackContext):
     context.user_data['contact_info']['value'] = update.message.text
     update.message.reply_text("أدخل اسم العرض (مثل: فيسبوك, رقم الهاتف):")
     return SET_CONTACT_INFO + 2
+
 
 def set_contact_info_display_name(update: Update, context: CallbackContext):
     contact_info = context.user_data['contact_info']
@@ -307,6 +339,7 @@ def set_contact_info_display_name(update: Update, context: CallbackContext):
     update.message.reply_text("تم تحديث معلومات الاتصال بنجاح!")
     context.user_data.clear()
     return ConversationHandler.END
+
 
 # عرض الاقتراحات
 def view_suggestions(update: Update, context: CallbackContext):
@@ -316,11 +349,13 @@ def view_suggestions(update: Update, context: CallbackContext):
         update.callback_query.message.reply_text(text)
     update.callback_query.message.reply_text("تم عرض جميع الاقتراحات.")
 
+
 # إلغاء المحادثة
 def cancel(update: Update, context: CallbackContext):
     update.message.reply_text("تم إلغاء العملية.")
     context.user_data.clear()
     return ConversationHandler.END
+
 
 def main():
     updater = Updater(ADMIN_BOT_TOKEN, use_context=True)
@@ -414,6 +449,7 @@ def main():
 
     updater.start_polling()
     updater.idle()
+
 
 if __name__ == "__main__":
     main()

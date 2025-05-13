@@ -1,12 +1,15 @@
 # customer_bot.py
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, \
+    CallbackContext
 from config import CUSTOMER_BOT_TOKEN, MAIN_ADMIN_ID, SECONDARY_ADMIN_ID
 from database import *
 
 # حالات المحادثة
-VIEW_PRODUCTS, CREATE_ORDER, ORDER_QUANTITY, ORDER_NAME, ORDER_PHONE, ORDER_STATE, ORDER_MUNICIPALITY, ORDER_ADDRESS, ORDER_DELIVERY_TYPE = range(9)
+VIEW_PRODUCTS, CREATE_ORDER, ORDER_QUANTITY, ORDER_NAME, ORDER_PHONE, ORDER_STATE, ORDER_MUNICIPALITY, ORDER_ADDRESS, ORDER_DELIVERY_TYPE = range(
+    9)
 CONTACT_US, SUGGESTION = range(2)
+
 
 # رسالة الترحيب
 def start(update: Update, context: CallbackContext):
@@ -24,6 +27,7 @@ def start(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(welcome_message, reply_markup=reply_markup, parse_mode="Markdown")
 
+
 # عرض المنتجات
 def view_products(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -33,6 +37,7 @@ def view_products(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.message.reply_text("اختر القسم:", reply_markup=reply_markup)
 
+
 def view_category_products(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -41,6 +46,7 @@ def view_category_products(update: Update, context: CallbackContext):
     context.user_data['products'] = products
     context.user_data['current_product'] = 0
     show_product(update, context)
+
 
 def show_product(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -59,6 +65,7 @@ def show_product(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     query.message.reply_photo(photo=prod[4], caption=text, reply_markup=reply_markup)
 
+
 def navigate_products(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -70,6 +77,7 @@ def navigate_products(update: Update, context: CallbackContext):
         context.user_data['current_product'] = min(len(products) - 1, current + 1)
     show_product(update, context)
 
+
 # إنشاء طلبية
 def create_order(update: Update, context: CallbackContext):
     context.user_data['cart'] = []
@@ -79,6 +87,7 @@ def create_order(update: Update, context: CallbackContext):
     update.callback_query.message.reply_text("اختر المنتج:", reply_markup=reply_markup)
     return CREATE_ORDER
 
+
 def order_select_product(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -86,6 +95,7 @@ def order_select_product(update: Update, context: CallbackContext):
     context.user_data['current_product_id'] = product_id
     query.message.reply_text("أدخل الكمية:")
     return ORDER_QUANTITY
+
 
 def order_quantity(update: Update, context: CallbackContext):
     try:
@@ -108,6 +118,7 @@ def order_quantity(update: Update, context: CallbackContext):
         update.message.reply_text("الكمية غير صحيحة! أدخل الكمية مرة أخرى:")
         return ORDER_QUANTITY
 
+
 def order_add_more(update: Update, context: CallbackContext):
     if update.message.text.lower() == "نعم":
         products = get_products()
@@ -118,20 +129,24 @@ def order_add_more(update: Update, context: CallbackContext):
     update.message.reply_text("أدخل اسمك الكامل:")
     return ORDER_NAME
 
+
 def order_name(update: Update, context: CallbackContext):
     context.user_data['order'] = {'name': update.message.text}
     update.message.reply_text("أدخل رقم هاتفك:")
     return ORDER_PHONE
+
 
 def order_phone(update: Update, context: CallbackContext):
     context.user_data['order']['phone'] = update.message.text
     update.message.reply_text("أدخل الولاية:")
     return ORDER_STATE
 
+
 def order_state(update: Update, context: CallbackContext):
     context.user_data['order']['state'] = update.message.text
     update.message.reply_text("أدخل البلدية:")
     return ORDER_MUNICIPALITY
+
 
 def order_municipality(update: Update, context: CallbackContext):
     context.user_data['order']['municipality'] = update.message.text
@@ -143,6 +158,7 @@ def order_municipality(update: Update, context: CallbackContext):
     update.message.reply_text("اختر نوع التوصيل:", reply_markup=reply_markup)
     return ORDER_DELIVERY_TYPE
 
+
 def order_delivery_type(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -153,9 +169,11 @@ def order_delivery_type(update: Update, context: CallbackContext):
         return ORDER_ADDRESS
     return finalize_order(update, context)
 
+
 def order_address(update: Update, context: CallbackContext):
     context.user_data['order']['address'] = update.message.text
     return finalize_order(update, context)
+
 
 def finalize_order(update: Update, context: CallbackContext):
     order = context.user_data['order']
@@ -175,15 +193,16 @@ def finalize_order(update: Update, context: CallbackContext):
         add_order_item(order_id, item['product_id'], item['quantity'])
     text = f"🎉 شكرًا لطلبك!\nالسعر الإجمالي: {total_price:.2f} د.ج\nسنتواصل معك قريبًا."
     update.message.reply_text(text) if update.message else update.callback_query.message.reply_text(text)
-    
+
     # إشعار للأدمن
     admin_text = f"🛒 طلبية جديدة #{order_id}\n👤 {order['name']}\n📞 {order['phone']}\n📍 {order['state']}, {order['municipality']}\n💵 {total_price:.2f} د.ج"
     context.bot.send_message(chat_id=MAIN_ADMIN_ID, text=admin_text)
     context.bot.send_message(chat_id=SECONDARY_ADMIN_ID, text=admin_text)
-    
+
     context.user_data.clear()
     start(update, context)
     return ConversationHandler.END
+
 
 # اتصل بنا
 def contact_us(update: Update, context: CallbackContext):
@@ -192,10 +211,12 @@ def contact_us(update: Update, context: CallbackContext):
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.message.reply_text("📞 تواصل معنا:", reply_markup=reply_markup)
 
+
 # اقتراحات
 def suggestion(update: Update, context: CallbackContext):
     update.callback_query.message.reply_text("أدخل اقتراحك:")
     return SUGGESTION
+
 
 def suggestion_text(update: Update, context: CallbackContext):
     add_suggestion(update.effective_user.id, update.message.text)
@@ -203,12 +224,14 @@ def suggestion_text(update: Update, context: CallbackContext):
     start(update, context)
     return ConversationHandler.END
 
+
 # إلغاء المحادثة
 def cancel(update: Update, context: CallbackContext):
     update.message.reply_text("تم إلغاء العملية.")
     context.user_data.clear()
     start(update, context)
     return ConversationHandler.END
+
 
 def main():
     updater = Updater(CUSTOMER_BOT_TOKEN, use_context=True)
@@ -253,6 +276,7 @@ def main():
 
     updater.start_polling()
     updater.idle()
+
 
 if __name__ == "__main__":
     main()
