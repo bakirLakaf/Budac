@@ -51,15 +51,15 @@ def view_products(update: Update, context: CallbackContext):
  query.message.reply_text("اختر القسم:", reply_markup=reply_markup)
 
 def view_category_products(update: Update, context: CallbackContext):
- query = update.callback_query
- query.answer()
- category_id = int(query.data.split("_")[1])
- products = get_products(category_id)
- for prod in products:
- text = f"🛒 {prod[1]}\n📝 {prod[2]}\n💵 {prod[3]:.2f} د.ج\n📦 المخزون: {prod[6]}"
- query.message.reply_photo(photo=prod[4], caption=text)
- query.message.reply_text("تم عرض المنتجات.")
-
+    query = update.callback_query
+    query.answer()
+    category_id = int(query.data.split("_")[1])
+    products = get_products(category_id)
+    for prod in products:
+        text = f"🛒 {prod[1]}\n📝 {prod[2]}\n💵 {prod[3]:.2f} د.ج\n📦 المخزون: {prod[6]}"
+        query.message.reply_photo(photo=prod[4], caption=text)
+    query.message.reply_text("تم عرض المنتجات.")
+    
 # إضافة منتج
 def add_product(update: Update, context: CallbackContext):
  if not check_admin(update, context):
