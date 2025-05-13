@@ -12,12 +12,12 @@ ADD_CATEGORY = range(1) # حالة لإضافة قسم
 
 # التحقق من هوية الأدمن
 def check_admin(update: Update, context: CallbackContext) -> bool:
- user_id = update.effective_user.id
- if user_id not in [MAIN_ADMIN_ID, SECONDARY_ADMIN_ID]:
- update.message.reply_text("غير مصرح لك بالوصول إلى هذا البوت!")
- return False
- return True
-
+    user_id = update.effective_user.id
+    if user_id not in [MAIN_ADMIN_ID, SECONDARY_ADMIN_ID]:
+        update.message.reply_text("غير مصرح لك بالوصول إلى هذا البوت!")
+        return False
+    return True
+ 
 # الأوامر الأساسية
 def start(update: Update, context: CallbackContext):
  if not check_admin(update, context):
